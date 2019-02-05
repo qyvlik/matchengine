@@ -7,6 +7,7 @@ import io.github.qyvlik.matchengine.core.order.OrderBookCenter;
 import io.github.qyvlik.matchengine.core.order.vo.Order;
 import io.github.qyvlik.matchengine.core.order.vo.OrderState;
 import io.github.qyvlik.matchengine.core.order.vo.OrderType;
+import io.github.qyvlik.matchengine.utils.OrderBuildTool;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,7 +53,7 @@ public class MatchEngineTest {
 
         Long globalSeqId = 1L;
 
-        PutOrderRequest buy1 = buildRequest(globalSeqId,
+        PutOrderRequest buy1 = OrderBuildTool.buildRequest(globalSeqId,
                 OrderType.limitBuy,
                 symbol,
                 new BigDecimal("1000"), new BigDecimal("1"));
@@ -62,7 +63,7 @@ public class MatchEngineTest {
         logger.info("executeLimitOrder:{}, {}", buy1, result1);
 
         globalSeqId++;
-        PutOrderRequest sell1 = buildRequest(globalSeqId,
+        PutOrderRequest sell1 = OrderBuildTool.buildRequest(globalSeqId,
                 OrderType.limitSell,
                 symbol,
                 new BigDecimal("1000"), new BigDecimal("1"));
@@ -84,7 +85,7 @@ public class MatchEngineTest {
 
         Long globalSeqId = 1L;
 
-        PutOrderRequest buy1 = buildRequest(globalSeqId,
+        PutOrderRequest buy1 = OrderBuildTool.buildRequest(globalSeqId,
                 OrderType.limitBuy,
                 symbol,
                 new BigDecimal("1000"), new BigDecimal("1"));
@@ -94,7 +95,7 @@ public class MatchEngineTest {
         logger.info("executeLimitOrder:{}, {}", buy1, result1);
 
         globalSeqId++;
-        PutOrderRequest sell2 = buildRequest(globalSeqId,
+        PutOrderRequest sell2 = OrderBuildTool.buildRequest(globalSeqId,
                 OrderType.limitSell,
                 symbol,
                 new BigDecimal("1000"), new BigDecimal("2"));
@@ -107,7 +108,7 @@ public class MatchEngineTest {
         assertTrue("asks must not be empty", !orderBookCenter.getAsks().isEmpty());
 
         globalSeqId++;
-        PutOrderRequest buy3 = buildRequest(globalSeqId,
+        PutOrderRequest buy3 = OrderBuildTool.buildRequest(globalSeqId,
                 OrderType.limitBuy,
                 symbol,
                 new BigDecimal("1000"), new BigDecimal("1"));
@@ -128,7 +129,7 @@ public class MatchEngineTest {
 
         Long globalSeqId = 1L;
 
-        PutOrderRequest sell1 = buildRequest(globalSeqId,
+        PutOrderRequest sell1 = OrderBuildTool.buildRequest(globalSeqId,
                 OrderType.limitSell,
                 symbol,
                 new BigDecimal("1000"), new BigDecimal("1"));
@@ -138,7 +139,7 @@ public class MatchEngineTest {
         logger.info("executeLimitOrder:{}, {}", sell1, result1);
 
         globalSeqId++;
-        PutOrderRequest buy2 = buildRequest(globalSeqId,
+        PutOrderRequest buy2 = OrderBuildTool.buildRequest(globalSeqId,
                 OrderType.limitBuy,
                 symbol,
                 new BigDecimal("1000"), new BigDecimal("2"));
@@ -151,7 +152,7 @@ public class MatchEngineTest {
         assertTrue("bids must not be empty", !orderBookCenter.getBids().isEmpty());
 
         globalSeqId++;
-        PutOrderRequest sell3 = buildRequest(globalSeqId,
+        PutOrderRequest sell3 = OrderBuildTool.buildRequest(globalSeqId,
                 OrderType.limitSell,
                 symbol,
                 new BigDecimal("1000"), new BigDecimal("1"));
@@ -172,7 +173,7 @@ public class MatchEngineTest {
 
         Long globalSeqId = 1L;
 
-        PutOrderRequest sell1 = buildRequest(globalSeqId,
+        PutOrderRequest sell1 = OrderBuildTool.buildRequest(globalSeqId,
                 OrderType.limitSell,
                 symbol,
                 new BigDecimal("1000"), new BigDecimal("1"));
@@ -180,7 +181,7 @@ public class MatchEngineTest {
         matchEngine.executeLimitOrder(sell1);
 
         globalSeqId++;
-        CancelOrderRequest req2 = buildRequest(globalSeqId, symbol, sell1.getOrder().getOrderId());
+        CancelOrderRequest req2 = OrderBuildTool.buildRequest(globalSeqId, symbol, sell1.getOrder().getOrderId());
 
         matchEngine.executeCancelOrder(req2);
 
@@ -190,14 +191,14 @@ public class MatchEngineTest {
                 orderBookCenter.getAsks().isEmpty() && orderBookCenter.getBids().isEmpty());
 
         globalSeqId++;
-        PutOrderRequest buy3 = buildRequest(globalSeqId,
+        PutOrderRequest buy3 = OrderBuildTool.buildRequest(globalSeqId,
                 OrderType.limitBuy,
                 symbol,
                 new BigDecimal("1000"), new BigDecimal("2"));
         ExecuteResult result2 = matchEngine.executeLimitOrder(buy3);
 
         globalSeqId++;
-        PutOrderRequest sell4 = buildRequest(globalSeqId,
+        PutOrderRequest sell4 = OrderBuildTool.buildRequest(globalSeqId,
                 OrderType.limitSell,
                 symbol,
                 new BigDecimal("1000"), new BigDecimal("1"));
@@ -205,62 +206,13 @@ public class MatchEngineTest {
         ExecuteResult result3 = matchEngine.executeLimitOrder(sell4);
 
         globalSeqId++;
-        CancelOrderRequest req5 = buildRequest(globalSeqId, symbol, buy3.getOrder().getOrderId());
+        CancelOrderRequest req5 = OrderBuildTool.buildRequest(globalSeqId, symbol, buy3.getOrder().getOrderId());
         ExecuteResult result4 = matchEngine.executeCancelOrder(req5);
 
         assertTrue("order book must be empty",
                 orderBookCenter.getAsks().isEmpty() && orderBookCenter.getBids().isEmpty());
 
 
-    }
-
-    private String uuid() {
-        return UUID.randomUUID().toString().replace("-", "");
-    }
-
-    private CancelOrderRequest buildRequest(Long seqId, String symbol, String orderId) {
-        CancelOrderRequest request = new CancelOrderRequest();
-        request.setOrderId(orderId);
-        request.setSeqId(seqId);
-        request.setSymbol(symbol);
-        return request;
-    }
-
-    private PutOrderRequest buildRequest(Long seqId,
-                                         OrderType type,
-                                         String symbol,
-                                         BigDecimal price,
-                                         BigDecimal amount) {
-        PutOrderRequest request = new PutOrderRequest();
-        request.setSymbol(symbol);
-        request.setSeqId(seqId);
-        request.setOrder(build(seqId, type, symbol, price, amount));
-        return request;
-    }
-
-    private Order build(Long seqId,
-                        OrderType type,
-                        String symbol,
-                        BigDecimal price,
-                        BigDecimal amount) {
-        Order order = new Order();
-        order.setSeqId(seqId);
-        order.setOrderId(uuid());
-        order.setSymbol(symbol);
-        order.setQuote("");
-        order.setBase("");
-        order.setType(type);
-        order.setUserId("nobody");
-        order.setPrice(price);
-        order.setStock(amount);
-        order.setMoney(price.multiply(amount));
-        order.setDealStock(BigDecimal.ZERO);
-        order.setDealMoney(BigDecimal.ZERO);
-        order.setState(OrderState.submitting);
-        order.setCreateTime(System.currentTimeMillis());
-        order.setUpdateTime(System.currentTimeMillis());
-
-        return order;
     }
 
 }

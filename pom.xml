@@ -59,6 +59,12 @@
 			<version>3.3.2</version>
 		</dependency>
 
+		<dependency>
+			<groupId>io.github.qyvlik</groupId>
+			<artifactId>jsonrpclite-core</artifactId>
+			<version>1.0.6</version>
+		</dependency>
+
 	</dependencies>
 
 	<build>

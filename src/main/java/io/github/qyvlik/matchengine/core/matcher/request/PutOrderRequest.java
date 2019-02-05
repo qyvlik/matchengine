@@ -17,6 +17,9 @@ public class PutOrderRequest implements Serializable {
         this.symbol = symbol;
         this.seqId = seqId;
         this.order = order;
+        if (this.order != null && this.order.getSeqId() == null) {
+            this.order.setSeqId(seqId);
+        }
     }
 
     public String getSymbol() {

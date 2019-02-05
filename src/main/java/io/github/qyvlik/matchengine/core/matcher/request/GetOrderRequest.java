@@ -4,8 +4,8 @@ import java.io.Serializable;
 
 public class GetOrderRequest implements Serializable {
     private String symbol;
-    private String orderId;
     private Long seqId;
+    private String orderId;
 
     public GetOrderRequest(String symbol, String orderId) {
         this.symbol = symbol;

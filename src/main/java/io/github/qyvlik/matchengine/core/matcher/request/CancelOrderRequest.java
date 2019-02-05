@@ -4,8 +4,8 @@ import java.io.Serializable;
 
 public class CancelOrderRequest implements Serializable {
     private String symbol;          // base-quote
-    private String orderId;
     private Long seqId;             // seq id for cancel
+    private String orderId;
 
     public CancelOrderRequest() {
 
