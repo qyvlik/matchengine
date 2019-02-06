@@ -7,13 +7,12 @@ import io.github.qyvlik.jsonrpclite.core.client.ChannelMessageHandler;
 import io.github.qyvlik.jsonrpclite.core.client.RpcClient;
 import io.github.qyvlik.jsonrpclite.core.jsonrpc.entity.response.ResponseObject;
 import io.github.qyvlik.jsonrpclite.core.jsonsub.pub.ChannelMessage;
+import io.github.qyvlik.matchengine.utils.Collections3;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.concurrent.Future;
 
 public class OrderDBListener {
@@ -23,19 +22,18 @@ public class OrderDBListener {
     private String symbol;
     private RpcClient listener;
     private RpcClient requester;
-    private OrderCommandExecutor commandExecutor;
+    private IOrderCommandExecutor commandExecutor;
     private TreeMap<Long, QueueUpRecord> pendingRecord = new TreeMap<>();           // asc
 
-    public OrderDBListener(String host, String symbol, OrderCommandExecutor commandExecutor) {
+    public OrderDBListener(String host, String symbol, IOrderCommandExecutor commandExecutor) {
         this.host = host;
         this.symbol = symbol;
         this.commandExecutor = commandExecutor;
         this.listener = new RpcClient(host);
         this.requester = new RpcClient(host);
-
     }
 
-    public void startupAndSub() throws IOException {
+    public void startupAndSub(Long seqId) throws IOException {
         this.listener.startup();
         this.requester.startup();
 
@@ -84,6 +82,14 @@ public class OrderDBListener {
                 List<QueueUpRecord> recordList = Lists.newArrayList(pendingRecord.values());
                 pendingRecord.clear();
 
+                recordList.sort(new Comparator<QueueUpRecord>() {
+                    @Override
+                    public int compare(QueueUpRecord o1, QueueUpRecord o2) {
+                        // asc
+                        return o1.getIndex().compareTo(o2.getIndex());
+                    }
+                });
+
                 if (commandExecutor != null) {
                     commandExecutor.exec(new OrderCommand(getSymbol(), recordList));
                 }
@@ -116,15 +122,48 @@ public class OrderDBListener {
     }
 
     private List<QueueUpRecord> getList(String scope, long from, long to) {
-        try {
-            Future<ResponseObject> future = requester.callRpcAsync(
-                    "get.list",
-                    Lists.newArrayList(scope, from, to),
-                    false);
-            return ((JSONArray) future.get().getResult()).toJavaList(QueueUpRecord.class);
-        } catch (Exception e) {
-            logger.error("getList error:{}", e.getMessage());
+        List<List<Long>> splitList = Collections3.splitRangeToList(from, to, 100);
+        if (Collections3.isEmpty(splitList)) {
+            return null;
         }
-        return null;
+
+        List<QueueUpRecord> recordList = Lists.newLinkedList();
+
+        for (List<Long> req : splitList) {
+            long begin = req.get(0);
+            long end = req.get(1);
+            if (begin == end) {
+                try {
+                    Future<ResponseObject> future = requester.callRpcAsync(
+                            "get.by.index",
+                            Lists.newArrayList(scope, begin),
+                            false);
+                    recordList.add(
+                            JSON.toJavaObject(
+                                    (JSON) future.get().getResult(),
+                                    QueueUpRecord.class
+                            )
+                    );
+                } catch (Exception e) {
+                    logger.error("getList error:{}", e.getMessage());
+                }
+            } else {
+                try {
+                    Future<ResponseObject> future = requester.callRpcAsync(
+                            "get.list",
+                            Lists.newArrayList(scope, begin, end),
+                            false);
+                    recordList.addAll(
+                            ((JSONArray) future.get().getResult()).toJavaList(QueueUpRecord.class)
+                    );
+                } catch (Exception e) {
+                    logger.error("getList error:{}", e.getMessage());
+                }
+            }
+        }
+        // remove all null object
+        recordList.removeAll(Collections.singleton(null));
+
+        return recordList;
     }
 }

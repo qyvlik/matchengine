@@ -72,9 +72,13 @@ public class MatchEngineServer {
         }
 
         matchEngineStoreService.storeOrderForCancelOrder(
-                request.getSymbol(), request.getOrderId(), result);
+                request.getSymbol(), request.getSeqId(), request.getOrderId(), result);
 
         return result;
+    }
+
+    public Long getLastSeqId(String symbol) {
+        return matchEngineStoreService.getLastSeqId(symbol);
     }
 
     // atomic

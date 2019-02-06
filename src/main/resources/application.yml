@@ -5,6 +5,14 @@ server:
   port: 8080
 
 matchengine:
+  symbols:
+    - btc-usdt
+    - eth-usdt
+    - eth-btc
+    - eos-usdt
+    - usdt-usd
   dbDisk:
     directory: matchengine
     limit: 4
+  orderdb:
+    host: localhost:17711/order

@@ -63,11 +63,11 @@ public class MatchEngineDBFactory {
         return createDBBySymbol(symbol, createIfMissing, false);
     }
 
-    protected DB createDBBySymbol(String group, boolean createIfMissing, boolean ignoreBlackList) {
+    protected DB createDBBySymbol(String symbol, boolean createIfMissing, boolean ignoreBlackList) {
         if (createIfMissing) {
-            return dbMap.computeIfAbsent(group, k -> createSymbolBucketInternal(group, ignoreBlackList));
+            return dbMap.computeIfAbsent(symbol, k -> createSymbolBucketInternal(symbol, ignoreBlackList));
         } else {
-            return dbMap.get(group);
+            return dbMap.get(symbol);
         }
     }
 

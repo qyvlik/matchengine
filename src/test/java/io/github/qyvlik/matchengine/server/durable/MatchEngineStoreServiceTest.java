@@ -102,7 +102,7 @@ public class MatchEngineStoreServiceTest {
 
         logger.info("storeOrderForPutOrder order2:{}", order2);
 
-        Long matchLastId = matchEngineStoreService.getMatchLastId(symbol);
+        Long matchLastId = matchEngineStoreService.getLastMatchId(symbol);
 
         logger.info("storeOrderForPutOrder matchLastId:{}", matchLastId);
 
@@ -159,7 +159,7 @@ public class MatchEngineStoreServiceTest {
         assertNull("order is delete, can not get from disk", order1);
 
 
-        Long matchLastId = matchEngineStoreService.getMatchLastId(symbol);
+        Long matchLastId = matchEngineStoreService.getLastMatchId(symbol);
         logger.info("storeOrderForPutOrder matchLastId:{}", matchLastId);
 
 

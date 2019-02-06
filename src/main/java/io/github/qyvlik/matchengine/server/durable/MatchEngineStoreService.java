@@ -24,6 +24,7 @@ public class MatchEngineStoreService {
     private final static String MATCH = "match:";
     private final static String LAST_MATCH_ID = "last.match.id";
     private final static String SEQ = "seq:";
+    private final static String LAST_SEQ_ID = "last.seq.id";
     private final static String BACKUP = "backup:";
 
     private MatchEngineDBFactory matchEngineDBFactory;
@@ -143,6 +144,8 @@ public class MatchEngineStoreService {
             writeBatch.put(bytes(LAST_MATCH_ID), bytes(lastMatchId + ""));      //  update the last match id
         }
 
+        writeBatch.put(bytes(LAST_SEQ_ID), bytes(takerOrder.getSeqId() + ""));      //  update the last seq id
+
         db.write(writeBatch);
     }
 
@@ -153,7 +156,7 @@ public class MatchEngineStoreService {
      * @param cancelOrderId
      * @param result
      */
-    public void storeOrderForCancelOrder(String symbol, String cancelOrderId, ExecuteResult result) {
+    public void storeOrderForCancelOrder(String symbol, Long seqId, String cancelOrderId, ExecuteResult result) {
         if (StringUtils.isBlank(symbol)) {
             throw new RuntimeException("symbol is empty");
         }
@@ -205,6 +208,8 @@ public class MatchEngineStoreService {
 
             writeBatch.put(bytes(LAST_MATCH_ID), bytes(lastMatchId + ""));      //  update the last match id
         }
+
+        writeBatch.put(bytes(LAST_SEQ_ID), bytes(seqId + ""));      //  update the last seq id
 
         db.write(writeBatch);
     }
@@ -286,7 +291,21 @@ public class MatchEngineStoreService {
         return lastMatchId;
     }
 
-    public Long getMatchLastId(String symbol) {
+    private Long getSeqLastId(DB db) {
+        Long lastMatchId = 0L;
+        String lastSeqIdString = asString(db.get(bytes(LAST_SEQ_ID)));
+        if (StringUtils.isNotBlank(lastSeqIdString)) {
+            lastMatchId = Long.parseLong(lastSeqIdString);
+        }
+        return lastMatchId;
+    }
+
+    public Long getLastSeqId(String symbol) {
+        DB db = matchEngineDBFactory.createDBBySymbol(symbol, false);
+        return getSeqLastId(db);
+    }
+
+    public Long getLastMatchId(String symbol) {
         DB db = matchEngineDBFactory.createDBBySymbol(symbol, false);
         return getMatchLastId(db);
     }
@@ -336,6 +355,7 @@ public class MatchEngineStoreService {
         return JSON.parseObject(orderRawValue, Order.class);
     }
 
+    // todo
     public Long backupOrderBookCenter(String symbol, OrderBookCenter orderBookCenter) {
         if (StringUtils.isBlank(symbol)) {
             throw new RuntimeException("symbol is empty");
@@ -344,8 +364,6 @@ public class MatchEngineStoreService {
         if (symbol.equalsIgnoreCase("sys")) {
             throw new RuntimeException("symbol:" + symbol + " is invalidate");
         }
-
-        // todo
         return null;
     }
 

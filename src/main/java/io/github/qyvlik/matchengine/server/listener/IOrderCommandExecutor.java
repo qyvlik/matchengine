@@ -1,5 +1,5 @@
 package io.github.qyvlik.matchengine.server.listener;
 
-public interface OrderCommandExecutor {
+public interface IOrderCommandExecutor {
     void exec(OrderCommand command);
 }

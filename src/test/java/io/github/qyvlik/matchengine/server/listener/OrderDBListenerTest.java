@@ -25,14 +25,14 @@ public class OrderDBListenerTest {
     public void startupAndSub() throws Exception {
 
         OrderDBListener listener = new OrderDBListener("ws://localhost:17711/orderdb",
-                "btc-usdt", new OrderCommandExecutor() {
+                "btc-usdt", new IOrderCommandExecutor() {
             @Override
             public void exec(OrderCommand command) {
                 logger.info("command:{}", command);
             }
         });
 
-        listener.startupAndSub();
+        listener.startupAndSub(0L);
 
         try {
             Thread.sleep(3000000);
@@ -40,7 +40,6 @@ public class OrderDBListenerTest {
 
         }
     }
-
 
     @Test
     public void startupAndSubAndMatch() throws Exception {
@@ -50,7 +49,7 @@ public class OrderDBListenerTest {
         final MatchEngine matchEngine = new MatchEngine(symbol);
 
         OrderDBListener listener = new OrderDBListener("ws://localhost:17711/orderdb",
-                symbol, new OrderCommandExecutor() {
+                symbol, new IOrderCommandExecutor() {
             @Override
             public void exec(OrderCommand command) {
 
@@ -81,7 +80,7 @@ public class OrderDBListenerTest {
             }
         });
 
-        listener.startupAndSub();
+        listener.startupAndSub(0L);
 
         try {
             Thread.sleep(3000000);
