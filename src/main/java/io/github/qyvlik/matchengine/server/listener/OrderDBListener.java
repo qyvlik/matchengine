@@ -52,32 +52,53 @@ public class OrderDBListener {
                     return;
                 }
 
+                if (channelMessage.getError() != null) {
+                    logger.error("startupAndSub failure : channelMessage:{}", channelMessage);
+                    return;
+                }
+
                 QueueUpRecord record = JSON.toJavaObject((JSON) channelMessage.getResult(), QueueUpRecord.class);
 
                 Map.Entry<Long, QueueUpRecord> lastEntity = pendingRecord.lastEntry();
                 Long last = lastEntity != null ? lastEntity.getKey() : null;
-                if (last == null) {
-                    pendingRecord.put(record.getIndex(), record);
-                } else {
-                    // index - last == 1
-                    long gap = record.getIndex() - last;
 
-                    if (gap > 1) {
-                        // fetch for compensation
-                        List<QueueUpRecord> list = getList(scope, last, record.getIndex());
-                        if (list != null && list.size() > 0) {
-                            for (QueueUpRecord queueUpRecord : list) {
-                                pendingRecord.put(queueUpRecord.getIndex(), queueUpRecord);
-                            }
-                        }
-                    } else if (gap == 1) {
-                        pendingRecord.put(record.getIndex(), record);
+                long gap = 0;           // todo use enum
+
+                if (last == null) {
+                    if (seqId != null && seqId < record.getIndex()) {
+                        gap = -2;
                     } else {
-                        // ignore
+                        // seqId bigger than current record's index
+                        // todo, but the record' index not order
+                        gap = -1;
                     }
+                } else {
+                    gap = record.getIndex() - last;
                 }
 
-                // to next
+                if (gap == -2) {
+                    List<QueueUpRecord> list = getList(scope, seqId, record.getIndex());
+                    if (list != null && list.size() > 0) {
+                        for (QueueUpRecord queueUpRecord : list) {
+                            pendingRecord.put(queueUpRecord.getIndex(), queueUpRecord);
+                        }
+                    }
+                } else if (gap == -1) {
+                    pendingRecord.put(record.getIndex(), record);
+                } else if (gap == 1) {
+                    pendingRecord.put(record.getIndex(), record);
+                } else if (gap > 1) {
+                    // fetch for compensation
+                    // `last` must not be null
+                    List<QueueUpRecord> list = getList(scope, last, record.getIndex());
+                    if (list != null && list.size() > 0) {
+                        for (QueueUpRecord queueUpRecord : list) {
+                            pendingRecord.put(queueUpRecord.getIndex(), queueUpRecord);
+                        }
+                    }
+                } else {
+                    // ignore
+                }
 
                 List<QueueUpRecord> recordList = Lists.newArrayList(pendingRecord.values());
                 pendingRecord.clear();
