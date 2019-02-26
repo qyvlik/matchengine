@@ -42,8 +42,15 @@ public class ServerBeanConfig {
 
     @Bean("matchEngineStoreService")
     public MatchEngineStoreService matchEngineStoreService(
-            @Qualifier("matchEngineDBFactory") MatchEngineDBFactory matchEngineDBFactory) {
-        return new MatchEngineStoreService(matchEngineDBFactory);
+            @Qualifier("matchEngineDBFactory") MatchEngineDBFactory matchEngineDBFactory,
+            @Qualifier("symbolList") List<String> symbolList) {
+        MatchEngineStoreService matchEngineStoreService = new MatchEngineStoreService(matchEngineDBFactory);
+
+        for (String symbol : symbolList) {
+            matchEngineStoreService.createSymbol(symbol);
+        }
+
+        return matchEngineStoreService;
     }
 
     @Bean("matchEngineServer")

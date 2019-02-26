@@ -91,15 +91,16 @@ public class OrderDBListenerTest {
 
     @Test
     public void submitOrder() throws Exception {
-        RpcClient writeClient = new RpcClient("ws://localhost:17711/orderdb", 500, 20000);
-        writeClient.startup();
+        RpcClient writeClient = new RpcClient(
+                "ws://120.79.231.205:17711/orderdb",
+                500,
+                20000);
 
-        Thread.sleep(2000);
-
+        writeClient.startup().get();
 
         String symbol = "btc-usdt";
 
-        int index = 10;
+        int index = 1;
         while (index-- > 0) {
 
             Order order = OrderBuildTool.build(null,
@@ -116,12 +117,11 @@ public class OrderDBListenerTest {
         }
 
         Future<ResponseObject> resFuture3 =
-                writeClient.callRpcAsync(
+                writeClient.callRpc(
                         "get.latest.index",
-                        Lists.newArrayList("order.btc-usdt"), false);
+                        Lists.newArrayList("order.btc-usdt"));
         ResponseObject resObj3 = resFuture3.get();
         logger.info("get.latest.index:{}", resObj3.getResult());
-
     }
 
 }

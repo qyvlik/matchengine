@@ -25,7 +25,12 @@ public class MatchEngineStoreService {
     private final static String LAST_MATCH_ID = "last.match.id";
     private final static String SEQ = "seq:";
     private final static String LAST_SEQ_ID = "last.seq.id";
+    /**
+     * key such as : backup:1:1, backup:1:2, ...
+     * backup:${id}:${index}
+     */
     private final static String BACKUP = "backup:";
+    private final static String LAST_BACKUP = "last.backup";            // {'id': 1, 'from': 1, to: 100}
 
     private MatchEngineDBFactory matchEngineDBFactory;
 

@@ -115,9 +115,11 @@ public class MatchEngine {
 
         orderBook = orderBookList.getOrderBookByOrderId(exchangeOrder.getOrderId());
 
+        // todo check orderId not in leveldb
+
         // repeat order
         if (orderBook != null) {
-            logger.info("executeLimitOrder repeat error:{}", request);
+            logger.error("executeLimitOrder repeat error:{}", request);
             return result;
         }
 

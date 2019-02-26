@@ -13,6 +13,6 @@ matchengine:
     - usdt-usd
   dbDisk:
     directory: matchengine
-    limit: 4
+    limit: 20
   orderdb:
-    host: localhost:17711/order
+    host: ws://120.79.231.205:17711/orderdb

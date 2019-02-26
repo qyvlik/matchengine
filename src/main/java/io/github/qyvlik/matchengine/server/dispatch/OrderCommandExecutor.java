@@ -4,10 +4,13 @@ import io.github.qyvlik.matchengine.core.matcher.request.CancelOrderRequest;
 import io.github.qyvlik.matchengine.core.matcher.request.PutOrderRequest;
 import io.github.qyvlik.matchengine.server.listener.IOrderCommandExecutor;
 import io.github.qyvlik.matchengine.server.listener.OrderCommand;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
 public class OrderCommandExecutor implements IOrderCommandExecutor {
+    private final Logger logger = LoggerFactory.getLogger(getClass());
     private MatchEngineRequestDispatcher matchEngineRequestDispatcher;
 
     public OrderCommandExecutor(MatchEngineRequestDispatcher matchEngineRequestDispatcher) {
@@ -31,6 +34,8 @@ public class OrderCommandExecutor implements IOrderCommandExecutor {
                 matchEngineRequestDispatcher.cancelOrder((CancelOrderRequest) req);
                 continue;
             }
+
+            logger.error("request not dispatch:{}", req);
         }
     }
 }

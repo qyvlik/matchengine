@@ -9,13 +9,15 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
-import java.io.IOException;
 import java.util.List;
 
 @Service
 public class Startup {
+    private final Logger logger = LoggerFactory.getLogger(getClass());
 
-    private Logger logger = LoggerFactory.getLogger(getClass());
+    @Autowired
+    @Qualifier("symbolList")
+    List<String> symbolList;
 
     @Autowired
     @Qualifier("orderDBListenerList")
@@ -31,10 +33,12 @@ public class Startup {
             return;
         }
 
+
+
         for (OrderDBListener listener : orderDBListenerList) {
             try {
                 listener.startupAndSub(matchEngineServer.getLastSeqId(listener.getSymbol()));
-            } catch (IOException e) {
+            } catch (Exception e) {
                 logger.error("listener:{} startup failure:{}",
                         listener.getSymbol(), e.getMessage());
             }

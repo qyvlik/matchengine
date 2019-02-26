@@ -147,7 +147,7 @@ public class MatchEngineStoreServiceTest {
         assertTrue("order book must be empty",
                 orderBookCenter.getAsks().isEmpty() && orderBookCenter.getBids().isEmpty());
 
-        matchEngineStoreService.storeOrderForCancelOrder(symbol, sell1.getOrder().getOrderId(), result2);
+        matchEngineStoreService.storeOrderForCancelOrder(symbol, req2.getSeqId(), sell1.getOrder().getOrderId(), result2);
 
 
         Order order1 = matchEngineStoreService.getOrderByOrderId(symbol, sell1.getOrder().getOrderId());
