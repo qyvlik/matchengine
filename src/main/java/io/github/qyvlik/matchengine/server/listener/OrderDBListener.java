@@ -11,7 +11,10 @@ import io.github.qyvlik.matchengine.utils.Collections3;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.TreeMap;
 import java.util.concurrent.Future;
 
 public class OrderDBListener {
@@ -72,15 +75,15 @@ public class OrderDBListener {
         private final TreeMap<Long, QueueUpRecord> pendingRecord = new TreeMap<>();           // asc
         private String symbol;
         private String scope;
-        private Long seqId;
+        private long latestSeqId;
         private IOrderCommandExecutor commandExecutor;
         private RpcClient requester;
 
 
-        MessageHandler(String symbol, String scope, Long seqId, IOrderCommandExecutor commandExecutor, RpcClient requester) {
+        MessageHandler(String symbol, String scope, long latestSeqId, IOrderCommandExecutor commandExecutor, RpcClient requester) {
             this.symbol = symbol;
             this.scope = scope;
-            this.seqId = seqId;
+            this.latestSeqId = latestSeqId;
             this.commandExecutor = commandExecutor;
             this.requester = requester;
         }
@@ -100,45 +103,29 @@ public class OrderDBListener {
 
             QueueUpRecord record = JSON.toJavaObject((JSON) channelMessage.getResult(), QueueUpRecord.class);
 
-            Map.Entry<Long, QueueUpRecord> lastEntity = pendingRecord.lastEntry();
-            Long last = lastEntity != null ? lastEntity.getKey() : null;
+            long currentSeqId = record.getIndex();
+            long seqGap = currentSeqId - latestSeqId;
 
-            long gap = 0;           // todo use enum
-
-            if (last == null) {
-                if (seqId != null && seqId < record.getIndex()) {
-                    gap = -2;
-                } else {
-                    // seqId bigger than current record's index
-                    // todo, but the record' index not order
-                    gap = -1;
-                }
-            } else {
-                gap = record.getIndex() - last;
+            if (seqGap <= 0) {
+                return;
             }
 
-            if (gap == -2) {
-                List<QueueUpRecord> list = getList(requester, scope, seqId, record.getIndex());
+            if (seqGap > 1) {
+                long from = latestSeqId + 1;
+                long to = record.getIndex();
+
+                List<QueueUpRecord> list = getList(requester, scope, from, to);
                 if (list != null && list.size() > 0) {
                     for (QueueUpRecord queueUpRecord : list) {
-                        pendingRecord.put(queueUpRecord.getIndex(), queueUpRecord);
-                    }
-                }
-            } else if (gap == -1) {
-                pendingRecord.put(record.getIndex(), record);
-            } else if (gap == 1) {
-                pendingRecord.put(record.getIndex(), record);
-            } else if (gap > 1) {
-                // fetch for compensation
-                // `last` must not be null
-                List<QueueUpRecord> list = getList(requester, scope, last, record.getIndex());
-                if (list != null && list.size() > 0) {
-                    for (QueueUpRecord queueUpRecord : list) {
+
+                        latestSeqId = queueUpRecord.getIndex();
+
                         pendingRecord.put(queueUpRecord.getIndex(), queueUpRecord);
                     }
                 }
             } else {
-                // ignore
+                pendingRecord.put(record.getIndex(), record);
+                latestSeqId = currentSeqId;
             }
 
             List<QueueUpRecord> recordList = Lists.newArrayList(pendingRecord.values());

@@ -100,11 +100,25 @@ public class OrderDBListenerTest {
 
         String symbol = "btc-usdt";
 
-        int index = 1;
-        while (index-- > 0) {
-
+        int buyIndex = 100;
+        while (buyIndex-- > 0) {
             Order order = OrderBuildTool.build(null,
                     OrderType.limitBuy,
+                    symbol,
+                    new BigDecimal("1000.0"),
+                    new BigDecimal("0.0001"));
+
+            String keyPrefix = "submit-";
+
+            writeClient.callRpcAsync(
+                    "append",
+                    Lists.newArrayList("order.btc-usdt", keyPrefix + order.getOrderId(), order));
+        }
+
+        int sellIndex = 1;
+        while (sellIndex-- > 0) {
+            Order order = OrderBuildTool.build(null,
+                    OrderType.limitSell,
                     symbol,
                     new BigDecimal("1000.0"),
                     new BigDecimal("0.0001"));
