@@ -4,6 +4,7 @@ import com.google.common.collect.Lists;
 import io.github.qyvlik.matchengine.core.durable.entity.OrderBookBackupItem;
 import io.github.qyvlik.matchengine.core.order.vo.OrderBook;
 import io.github.qyvlik.matchengine.core.order.vo.OrderSide;
+import io.github.qyvlik.matchengine.utils.Collections3;
 
 import java.io.Serializable;
 import java.util.Collection;
@@ -21,9 +22,20 @@ public class OrderBookCenter implements Serializable {
         return bids;
     }
 
-    private void clearOrderBook() {
-        asks.clear();
-        asks.clear();
+    public void restoreFromBackupItem(List<OrderBookBackupItem> items) {
+        if (Collections3.isEmpty(items)) {
+            return;
+        }
+        for (OrderBookBackupItem item : items) {
+            OrderBook orderBook = item.getOrderBook();
+            if (orderBook.getType().isBuy()) {
+                bids.putOrderBook(orderBook);
+            } else if (orderBook.getType().isSell()) {
+                asks.putOrderBook(orderBook);
+            } else {
+                throw new RuntimeException("not support type:" + orderBook.getType());
+            }
+        }
     }
 
     public List<OrderBookBackupItem> backupAsks() {

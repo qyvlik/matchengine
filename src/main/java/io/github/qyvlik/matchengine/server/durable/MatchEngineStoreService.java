@@ -2,6 +2,7 @@ package io.github.qyvlik.matchengine.server.durable;
 
 import com.alibaba.fastjson.JSON;
 import com.google.common.collect.Lists;
+import io.github.qyvlik.matchengine.core.durable.entity.OrderBookBackupInfo;
 import io.github.qyvlik.matchengine.core.durable.entity.OrderBookBackupItem;
 import io.github.qyvlik.matchengine.core.durable.service.MatchEngineDBFactory;
 import io.github.qyvlik.matchengine.core.matcher.vo.ExecuteResult;
@@ -28,12 +29,19 @@ public class MatchEngineStoreService {
     private final static String LAST_MATCH_ID = "last.match.id";
     private final static String SEQ = "seq:";
     private final static String LAST_SEQ_ID = "last.seq.id";
+
+    /**
+     * OrderBookBackupInfo
+     */
+    private final static String ORDER_BOOK_BACKUP_INFO = "order-backup:";
+
     /**
      * key such as : backup:1:1, backup:1:2, ...
      * backup:${id}:${index}
      */
-    private final static String ORDER_BACKUP = "order-backup:";
-    private final static String LAST_BACKUP_ID = "last.backup.id";            // {'id': 1, 'from': 1, to: 100}
+    private final static String ORDER_BOOK_BACKUP_ITEM = "order:";
+
+    private final static String ORDER_BOOK_LAST_BACKUP_ID = "last.backup.id";
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -55,12 +63,16 @@ public class MatchEngineStoreService {
         return MATCH + matchId;
     }
 
-    private static String orderBackupLatestId(String symbol) {
-        return LAST_BACKUP_ID;
+    private static String orderBookBackupLatestIdKey(String symbol) {
+        return ORDER_BOOK_LAST_BACKUP_ID;
     }
 
-    private static String orderBackupOrderKey(String symbol, Long backupId, Long seqId) {
-        return ORDER_BACKUP + backupId + ":" + seqId;
+    private static String orderBookBackupInfoKey(String symbol, Long backupId) {
+        return ORDER_BOOK_BACKUP_INFO + backupId;
+    }
+
+    private static String orderBookBackupItemKey(String symbol, Long backupId, Long seqId) {
+        return ORDER_BOOK_BACKUP_ITEM + backupId + ":" + seqId;
     }
 
     public List<String> getSymbolList() {
@@ -373,6 +385,48 @@ public class MatchEngineStoreService {
         return JSON.parseObject(orderRawValue, Order.class);
     }
 
+    private long getOrderBookLastBackupId(DB db, String symbol) {
+        byte[] rawValue = db.get(bytes(orderBookBackupLatestIdKey(symbol)));
+        if (rawValue == null || rawValue.length == 0) {
+            return 0L;
+        }
+        try {
+            return Long.parseLong(asString(rawValue));
+        } catch (Exception e) {
+            logger.error("getOrderBookLastBackupId parseLong error:{}", e.getMessage());
+            return 0L;
+        }
+    }
+
+    private OrderBookBackupInfo getOrderBookBackupInfo(DB db, String symbol, Long backupId) {
+        byte[] rawValue = db.get(bytes(orderBookBackupInfoKey(symbol, backupId)));
+        if (rawValue == null || rawValue.length == 0) {
+            return null;
+        }
+
+        try {
+            return JSON.parseObject(asString(rawValue)).toJavaObject(OrderBookBackupInfo.class);
+        } catch (Exception e) {
+            logger.error("getOrderBookBackupInfo parseObject error:{}", e.getMessage());
+            return null;
+        }
+    }
+
+    private OrderBookBackupItem getOrderBookBackupItem(DB db, String symbol, Long backupId, Long seqId) {
+        String key = orderBookBackupItemKey(symbol, backupId, seqId);
+        byte[] rawValue = db.get(bytes(key));
+        if (rawValue == null || rawValue.length == 0) {
+            return null;
+        }
+
+        try {
+            return JSON.parseObject(asString(rawValue)).toJavaObject(OrderBookBackupItem.class);
+        } catch (Exception e) {
+            logger.error("getOrderBookBackupItem parseObject error:{}", e.getMessage());
+            return null;
+        }
+    }
+
     public Long backupOrderBookCenter(String symbol, OrderBookCenter orderBookCenter) {
         if (StringUtils.isBlank(symbol)) {
             throw new RuntimeException("symbol is empty");
@@ -384,44 +438,73 @@ public class MatchEngineStoreService {
 
         DB db = matchEngineDBFactory.createDBBySymbol(symbol, false);
 
-        byte[] orderBackupLatestIdRawValue =
-                db.get(bytes(orderBackupLatestId(symbol)));
-
-        long latestBackupId = 0L;
-        if (orderBackupLatestIdRawValue != null && orderBackupLatestIdRawValue.length > 0) {
-            String orderBackupLatestIdStr = asString(orderBackupLatestIdRawValue);
-            try {
-                latestBackupId = Long.parseLong(orderBackupLatestIdStr);
-            } catch (Exception e) {
-                logger.error("backupOrderBookCenter parseLong failure symbol:{}, error:{}", symbol, e.getMessage());
-            }
-        }
+        long latestBackupId = getOrderBookLastBackupId(db, symbol);
 
         long currentBackupId = latestBackupId + 1;
 
         WriteBatch writeBatch = db.createWriteBatch();
 
-        // update latest backup id
-        writeBatch.put(bytes(orderBackupLatestId(symbol)), bytes(currentBackupId + ""));
+        Long backupStartSeqId = null;
+        Long backupEndSeqId = null;
 
         List<OrderBookBackupItem> asks = orderBookCenter.backupAsks();
-        for (OrderBookBackupItem orderBook : asks) {
-            String key = orderBackupOrderKey(symbol, currentBackupId, orderBook.getOrderBook().getSeqId());
-            String value = JSON.toJSONString(orderBook);
+        for (OrderBookBackupItem item : asks) {
+            String key = orderBookBackupItemKey(symbol, currentBackupId, item.getOrderBook().getSeqId());
+            String value = JSON.toJSONString(item);
             writeBatch.put(bytes(key), bytes(value));
+            if (backupStartSeqId == null) {
+                backupStartSeqId = item.getOrderBook().getSeqId();
+            }
         }
         asks.clear();
 
         List<OrderBookBackupItem> bids = orderBookCenter.backupBids();
-        for (OrderBookBackupItem orderBook : bids) {
-            String key = orderBackupOrderKey(symbol, currentBackupId, orderBook.getOrderBook().getSeqId());
-            String value = JSON.toJSONString(orderBook);
+        for (OrderBookBackupItem item : bids) {
+            String key = orderBookBackupItemKey(symbol, currentBackupId, item.getOrderBook().getSeqId());
+            String value = JSON.toJSONString(item);
             writeBatch.put(bytes(key), bytes(value));
+            backupEndSeqId = item.getOrderBook().getSeqId();
         }
         bids.clear();
+
+        OrderBookBackupInfo orderBookBackupInfo = new OrderBookBackupInfo(
+                currentBackupId, latestBackupId, backupStartSeqId, backupEndSeqId);
+
+        // update latest backup id
+        writeBatch.put(bytes(orderBookBackupLatestIdKey(symbol)), bytes(currentBackupId + ""));
+
+        // update the backup info
+        writeBatch.put(bytes(orderBookBackupInfoKey(symbol, currentBackupId)), bytes(JSON.toJSONString(orderBookBackupInfo)));
 
         db.write(writeBatch);
 
         return currentBackupId;
     }
+
+    public List<OrderBookBackupItem> getOrderBookBackupItems(String symbol, Long backupId) {
+        DB db = matchEngineDBFactory.createDBBySymbol(symbol, false);
+
+        OrderBookBackupInfo orderBookBackupInfo = getOrderBookBackupInfo(db, symbol, backupId);
+
+        List<OrderBookBackupItem> items = Lists.newLinkedList();
+
+        if (orderBookBackupInfo == null) {
+            return items;
+        }
+
+        long currentSeqId = orderBookBackupInfo.getBackupStartSeqId();
+
+        while (true) {
+            OrderBookBackupItem item = getOrderBookBackupItem(db, symbol, backupId, currentSeqId);
+            if (item == null) {
+                break;
+            }
+            items.add(item);
+
+            currentSeqId = item.getPrevSeqId();         // prev seq id
+        }
+
+        return items;
+    }
+
 }
