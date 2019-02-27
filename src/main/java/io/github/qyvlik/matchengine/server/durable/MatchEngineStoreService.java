@@ -2,6 +2,7 @@ package io.github.qyvlik.matchengine.server.durable;
 
 import com.alibaba.fastjson.JSON;
 import com.google.common.collect.Lists;
+import io.github.qyvlik.matchengine.core.durable.entity.OrderBookBackupItem;
 import io.github.qyvlik.matchengine.core.durable.service.MatchEngineDBFactory;
 import io.github.qyvlik.matchengine.core.matcher.vo.ExecuteResult;
 import io.github.qyvlik.matchengine.core.matcher.vo.MatchDetailItem;
@@ -11,6 +12,8 @@ import io.github.qyvlik.matchengine.core.order.vo.Order;
 import org.apache.commons.lang3.StringUtils;
 import org.iq80.leveldb.DB;
 import org.iq80.leveldb.WriteBatch;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
 import java.util.List;
@@ -29,8 +32,10 @@ public class MatchEngineStoreService {
      * key such as : backup:1:1, backup:1:2, ...
      * backup:${id}:${index}
      */
-    private final static String BACKUP = "backup:";
-    private final static String LAST_BACKUP = "last.backup";            // {'id': 1, 'from': 1, to: 100}
+    private final static String ORDER_BACKUP = "order-backup:";
+    private final static String LAST_BACKUP_ID = "last.backup.id";            // {'id': 1, 'from': 1, to: 100}
+
+    private final Logger logger = LoggerFactory.getLogger(getClass());
 
     private MatchEngineDBFactory matchEngineDBFactory;
 
@@ -48,6 +53,14 @@ public class MatchEngineStoreService {
 
     private static String orderMatchKey(String symbol, Long matchId) {
         return MATCH + matchId;
+    }
+
+    private static String orderBackupLatestId(String symbol) {
+        return LAST_BACKUP_ID;
+    }
+
+    private static String orderBackupOrderKey(String symbol, Long backupId, Long seqId) {
+        return ORDER_BACKUP + backupId + ":" + seqId;
     }
 
     public List<String> getSymbolList() {
@@ -360,7 +373,6 @@ public class MatchEngineStoreService {
         return JSON.parseObject(orderRawValue, Order.class);
     }
 
-    // todo
     public Long backupOrderBookCenter(String symbol, OrderBookCenter orderBookCenter) {
         if (StringUtils.isBlank(symbol)) {
             throw new RuntimeException("symbol is empty");
@@ -369,7 +381,47 @@ public class MatchEngineStoreService {
         if (symbol.equalsIgnoreCase("sys")) {
             throw new RuntimeException("symbol:" + symbol + " is invalidate");
         }
-        return null;
-    }
 
+        DB db = matchEngineDBFactory.createDBBySymbol(symbol, false);
+
+        byte[] orderBackupLatestIdRawValue =
+                db.get(bytes(orderBackupLatestId(symbol)));
+
+        long latestBackupId = 0L;
+        if (orderBackupLatestIdRawValue != null && orderBackupLatestIdRawValue.length > 0) {
+            String orderBackupLatestIdStr = asString(orderBackupLatestIdRawValue);
+            try {
+                latestBackupId = Long.parseLong(orderBackupLatestIdStr);
+            } catch (Exception e) {
+                logger.error("backupOrderBookCenter parseLong failure symbol:{}, error:{}", symbol, e.getMessage());
+            }
+        }
+
+        long currentBackupId = latestBackupId + 1;
+
+        WriteBatch writeBatch = db.createWriteBatch();
+
+        // update latest backup id
+        writeBatch.put(bytes(orderBackupLatestId(symbol)), bytes(currentBackupId + ""));
+
+        List<OrderBookBackupItem> asks = orderBookCenter.backupAsks();
+        for (OrderBookBackupItem orderBook : asks) {
+            String key = orderBackupOrderKey(symbol, currentBackupId, orderBook.getOrderBook().getSeqId());
+            String value = JSON.toJSONString(orderBook);
+            writeBatch.put(bytes(key), bytes(value));
+        }
+        asks.clear();
+
+        List<OrderBookBackupItem> bids = orderBookCenter.backupBids();
+        for (OrderBookBackupItem orderBook : bids) {
+            String key = orderBackupOrderKey(symbol, currentBackupId, orderBook.getOrderBook().getSeqId());
+            String value = JSON.toJSONString(orderBook);
+            writeBatch.put(bytes(key), bytes(value));
+        }
+        bids.clear();
+
+        db.write(writeBatch);
+
+        return currentBackupId;
+    }
 }

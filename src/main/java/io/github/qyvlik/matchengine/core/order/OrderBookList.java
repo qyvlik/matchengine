@@ -88,5 +88,7 @@ public class OrderBookList implements Serializable {
         return orderMap.get(orderId);
     }
 
-
+    public ConcurrentSkipListMap<OrderBookKey, OrderBook> getOrderBookList() {
+        return orderBookList;
+    }
 }

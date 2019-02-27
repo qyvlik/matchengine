@@ -13,7 +13,6 @@ public class OrderCommand implements Serializable {
     private String symbol;
     private List<QueueUpRecord> recordList;
 
-
     public OrderCommand() {
 
     }

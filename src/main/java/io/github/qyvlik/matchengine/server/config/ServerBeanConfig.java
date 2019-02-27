@@ -2,6 +2,7 @@ package io.github.qyvlik.matchengine.server.config;
 
 import com.google.common.collect.Lists;
 import io.github.qyvlik.matchengine.core.durable.service.MatchEngineDBFactory;
+import io.github.qyvlik.matchengine.core.matcher.request.CreateSymbolRequest;
 import io.github.qyvlik.matchengine.server.dispatch.MatchEngineRequestDispatcher;
 import io.github.qyvlik.matchengine.server.dispatch.OrderCommandExecutor;
 import io.github.qyvlik.matchengine.server.dispatch.WritableExecutor;
@@ -42,21 +43,21 @@ public class ServerBeanConfig {
 
     @Bean("matchEngineStoreService")
     public MatchEngineStoreService matchEngineStoreService(
-            @Qualifier("matchEngineDBFactory") MatchEngineDBFactory matchEngineDBFactory,
-            @Qualifier("symbolList") List<String> symbolList) {
-        MatchEngineStoreService matchEngineStoreService = new MatchEngineStoreService(matchEngineDBFactory);
-
-        for (String symbol : symbolList) {
-            matchEngineStoreService.createSymbol(symbol);
-        }
-
-        return matchEngineStoreService;
+            @Qualifier("matchEngineDBFactory") MatchEngineDBFactory matchEngineDBFactory) {
+        return new MatchEngineStoreService(matchEngineDBFactory);
     }
 
     @Bean("matchEngineServer")
     public MatchEngineServer matchEngineServer(
-            @Qualifier("matchEngineStoreService") MatchEngineStoreService matchEngineStoreService) {
-        return new MatchEngineServer(matchEngineStoreService);
+            @Qualifier("matchEngineStoreService") MatchEngineStoreService matchEngineStoreService,
+            @Qualifier("symbolList") List<String> symbolList) {
+        MatchEngineServer matchEngineServer = new MatchEngineServer(matchEngineStoreService);
+
+        for (String symbol : symbolList) {
+            matchEngineServer.createSymbol(new CreateSymbolRequest(symbol));
+        }
+
+        return matchEngineServer;
     }
 
     @Bean("writableExecutor")
@@ -90,5 +91,4 @@ public class ServerBeanConfig {
         }
         return listeners;
     }
-
 }
