@@ -18,15 +18,13 @@ import java.util.TreeMap;
 import java.util.concurrent.Future;
 
 public class OrderDBListener {
-    private static final Logger logger = LoggerFactory.getLogger(OrderDBListener.class);
-
     private String host;
     private String symbol;
     private RpcClient listener;
     private RpcClient requester;
-    private IOrderCommandExecutor commandExecutor;
+    private OrderCommandExecutor commandExecutor;
 
-    public OrderDBListener(String host, String symbol, IOrderCommandExecutor commandExecutor) {
+    public OrderDBListener(String host, String symbol, OrderCommandExecutor commandExecutor) {
         this.host = host;
         this.symbol = symbol;
         this.commandExecutor = commandExecutor;
@@ -76,11 +74,11 @@ public class OrderDBListener {
         private String symbol;
         private String scope;
         private long latestSeqId;
-        private IOrderCommandExecutor commandExecutor;
+        private OrderCommandExecutor commandExecutor;
         private RpcClient requester;
 
 
-        MessageHandler(String symbol, String scope, long latestSeqId, IOrderCommandExecutor commandExecutor, RpcClient requester) {
+        MessageHandler(String symbol, String scope, long latestSeqId, OrderCommandExecutor commandExecutor, RpcClient requester) {
             this.symbol = symbol;
             this.scope = scope;
             this.latestSeqId = latestSeqId;
@@ -90,17 +88,17 @@ public class OrderDBListener {
 
         @Override
         public void handle(ChannelMessage channelMessage) {
+            if (channelMessage.getError() != null) {
+                logger.error("startupAndSub failure : channelMessage:{}", channelMessage);
+                return;
+            }
 
             if (channelMessage.getResult() instanceof String
                     && channelMessage.getResult().toString().equalsIgnoreCase("subscribe")) {
                 return;
             }
 
-            if (channelMessage.getError() != null) {
-                logger.error("startupAndSub failure : channelMessage:{}", channelMessage);
-                return;
-            }
-
+            // todo if subscribe success, fetch the latest
             QueueUpRecord record = JSON.toJavaObject((JSON) channelMessage.getResult(), QueueUpRecord.class);
 
             long currentSeqId = record.getIndex();
@@ -145,6 +143,7 @@ public class OrderDBListener {
         }
 
         List<QueueUpRecord> getList(RpcClient requester, String scope, long from, long to) {
+            // todo match fetch size
             List<List<Long>> splitList = Collections3.splitRangeToList(from, to, 100);
             if (Collections3.isEmpty(splitList)) {
                 return null;
@@ -182,6 +181,7 @@ public class OrderDBListener {
                     }
                 }
             }
+
             // remove all null object
             recordList.removeAll(Collections.singleton(null));
 

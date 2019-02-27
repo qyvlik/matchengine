@@ -1,9 +1,6 @@
 package io.github.qyvlik.matchengine.server.dispatch;
 
-import io.github.qyvlik.matchengine.core.matcher.request.CancelOrderRequest;
-import io.github.qyvlik.matchengine.core.matcher.request.CreateSymbolRequest;
-import io.github.qyvlik.matchengine.core.matcher.request.GetOrderRequest;
-import io.github.qyvlik.matchengine.core.matcher.request.PutOrderRequest;
+import io.github.qyvlik.matchengine.core.matcher.request.*;
 import io.github.qyvlik.matchengine.core.order.vo.Order;
 import io.github.qyvlik.matchengine.server.engine.MatchEngineServer;
 
@@ -63,6 +60,18 @@ public class MatchEngineRequestDispatcher {
                 @Override
                 public void run() {
                     matchEngineServer.cancelOrder(request);
+                }
+            });
+        }
+    }
+
+    public void backupOrderBook(BackupRequest request) {
+        Executor executor = writableExecutor.getBySymbol(request.getSymbol());
+        if (executor != null) {
+            executor.execute(new Runnable() {
+                @Override
+                public void run() {
+                    matchEngineServer.backupOrderBook(request);
                 }
             });
         }

@@ -28,9 +28,11 @@ public class MatchEngine {
     private final OrderBookCenter orderBookCenter = new OrderBookCenter();
     private final Logger logger = LoggerFactory.getLogger(getClass());
     private final String symbol;
+    private long currentExecuteTimes;
 
     public MatchEngine(String symbol) {
         this.symbol = symbol;
+        this.currentExecuteTimes = 0;
     }
 
     public String getSymbol() {
@@ -39,6 +41,10 @@ public class MatchEngine {
 
     public OrderBookCenter getOrderBookCenter() {
         return orderBookCenter;
+    }
+
+    public long getCurrentExecuteTimes() {
+        return currentExecuteTimes;
     }
 
     public ExecuteResult executeCancelOrder(CancelOrderRequest request) {
@@ -54,6 +60,8 @@ public class MatchEngine {
             logger.error("matchEngine executeCancelOrder return:{} not in engine", request.getOrderId());
             return new ExecuteResult();
         }
+
+        currentExecuteTimes += 1;
 
         ExecuteResult result = new ExecuteResult();
 
@@ -122,6 +130,8 @@ public class MatchEngine {
             logger.error("executeLimitOrder repeat error:{}", request);
             return result;
         }
+
+        currentExecuteTimes += 1;
 
         OrderBook takerOrder = OrderBook.adaptorLimitPriceOrder(exchangeOrder);
 

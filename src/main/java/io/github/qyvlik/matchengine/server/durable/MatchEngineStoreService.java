@@ -17,6 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
 
 import static org.iq80.leveldb.impl.Iq80DBFactory.asString;
@@ -25,21 +26,22 @@ import static org.iq80.leveldb.impl.Iq80DBFactory.bytes;
 public class MatchEngineStoreService {
 
     private final static String ORDER = "order:";
-    private final static String MATCH = "match:";
-    private final static String LAST_MATCH_ID = "last.match.id";
-    private final static String SEQ = "seq:";
-    private final static String LAST_SEQ_ID = "last.seq.id";
+    private final static String ORDER_MATCH = "order-match:";
+    private final static String ORDER_MATCH_LAST_ID = "order-match-last-id";
+    private final static String ORDER_SEQ = "order-seq:";
+    private final static String ORDER_ACTION = "order-action:";
+    private final static String ORDER_ACTION_LAST_SEQ_ID = "order-action-last-seq";
 
     /**
      * OrderBookBackupInfo
      */
-    private final static String ORDER_BOOK_BACKUP_INFO = "order-backup:";
+    private final static String ORDER_BOOK_BACKUP_INFO = "order-backup-info:";
 
     /**
      * key such as : backup:1:1, backup:1:2, ...
      * backup:${id}:${index}
      */
-    private final static String ORDER_BOOK_BACKUP_ITEM = "order:";
+    private final static String ORDER_BOOK_BACKUP_ITEM = "order-backup:";
 
     private final static String ORDER_BOOK_LAST_BACKUP_ID = "last.backup.id";
 
@@ -51,27 +53,31 @@ public class MatchEngineStoreService {
         this.matchEngineDBFactory = matchEngineDBFactory;
     }
 
-    private static String orderIdKey(String symbol, String orderId) {
+    private static String keyOfOrderId(String symbol, String orderId) {
         return ORDER + orderId;
     }
 
-    private static String orderSeqKey(String symbol, Long seqId) {
-        return SEQ + seqId;
+    private static String keyOfOrderSeqId(String symbol, Long seqId) {
+        return ORDER_SEQ + seqId;
     }
 
-    private static String orderMatchKey(String symbol, Long matchId) {
-        return MATCH + matchId;
+    private static String keyOfOrderAction(String symbol, Long seqId) {
+        return ORDER_ACTION + seqId;
     }
 
-    private static String orderBookBackupLatestIdKey(String symbol) {
+    private static String keyOrOrderMatchKey(String symbol, Long matchId) {
+        return ORDER_MATCH + matchId;
+    }
+
+    private static String keyOfOrderBookLastBackupId(String symbol) {
         return ORDER_BOOK_LAST_BACKUP_ID;
     }
 
-    private static String orderBookBackupInfoKey(String symbol, Long backupId) {
+    private static String keyOfOrderBookBackupInfo(String symbol, Long backupId) {
         return ORDER_BOOK_BACKUP_INFO + backupId;
     }
 
-    private static String orderBookBackupItemKey(String symbol, Long backupId, Long seqId) {
+    private static String keyOfOrderBookBackupItem(String symbol, Long backupId, Long seqId) {
         return ORDER_BOOK_BACKUP_ITEM + backupId + ":" + seqId;
     }
 
@@ -113,6 +119,12 @@ public class MatchEngineStoreService {
 
         WriteBatch writeBatch = db.createWriteBatch();
 
+        // save order-action
+        writeBatch.put(
+                bytes(keyOfOrderAction(symbol, takerOrder.getSeqId())),
+                bytes("submit-" + takerOrder.getOrderId())
+        );
+
         // save or update order
         if (result.getOrderSnapshots() != null && result.getOrderSnapshots().size() > 0) {
             for (OrderSnapshot orderSnapshot : result.getOrderSnapshots()) {
@@ -127,8 +139,8 @@ public class MatchEngineStoreService {
 
                     order.setState(orderSnapshot.getState());
 
-                    String takerOrderIdKey = orderIdKey(symbol, order.getOrderId());
-                    String takerOrderSeqKey = orderSeqKey(symbol, order.getSeqId());
+                    String takerOrderIdKey = keyOfOrderId(symbol, order.getOrderId());
+                    String takerOrderSeqKey = keyOfOrderSeqId(symbol, order.getSeqId());
                     String takerOrderValue = JSON.toJSONString(order);
                     writeBatch.put(bytes(takerOrderIdKey), bytes(takerOrderValue));
                     writeBatch.put(bytes(takerOrderSeqKey), bytes(takerOrderIdKey));
@@ -137,7 +149,7 @@ public class MatchEngineStoreService {
                 }
 
                 String orderRawValue = asString(
-                        db.get(bytes(orderIdKey(symbol, orderSnapshot.getOrderId()))));
+                        db.get(bytes(keyOfOrderId(symbol, orderSnapshot.getOrderId()))));
 
                 if (StringUtils.isBlank(orderRawValue)) {
 
@@ -151,30 +163,30 @@ public class MatchEngineStoreService {
 
                 // update order
                 writeBatch.put(
-                        bytes(orderIdKey(symbol, updateOrder.getOrderId())),
+                        bytes(keyOfOrderId(symbol, updateOrder.getOrderId())),
                         bytes(JSON.toJSONString(updateOrder)));
             }
         }
 
 
-        Long lastMatchId = getMatchLastId(db);
+        Long lastMatchId = getOrderMatchLastId(db);
 
         List<MatchDetailItem> items = result.getItems();
 
         if (items != null && items.size() > 0) {
             for (MatchDetailItem matchDetailItem : items) {
                 lastMatchId += 1;
-                String orderMatchKey = orderMatchKey(symbol, lastMatchId);
+                String orderMatchKey = keyOrOrderMatchKey(symbol, lastMatchId);
                 matchDetailItem.setId(lastMatchId);
                 String orderMatchValue = JSON.toJSONString(matchDetailItem);
 
                 writeBatch.put(bytes(orderMatchKey), bytes(orderMatchValue));
             }
 
-            writeBatch.put(bytes(LAST_MATCH_ID), bytes(lastMatchId + ""));      //  update the last match id
+            writeBatch.put(bytes(ORDER_MATCH_LAST_ID), bytes(lastMatchId + ""));      //  update the last match id
         }
 
-        writeBatch.put(bytes(LAST_SEQ_ID), bytes(takerOrder.getSeqId() + ""));      //  update the last seq id
+        writeBatch.put(bytes(ORDER_ACTION_LAST_SEQ_ID), bytes(takerOrder.getSeqId() + ""));      //  update the last seq id
 
         db.write(writeBatch);
     }
@@ -198,12 +210,19 @@ public class MatchEngineStoreService {
         DB db = matchEngineDBFactory.createDBBySymbol(symbol, false);
         WriteBatch writeBatch = db.createWriteBatch();
 
+
+        // save order-action
+        writeBatch.put(
+                bytes(keyOfOrderAction(symbol, seqId)),
+                bytes("submit-" + cancelOrderId)
+        );
+
         // update cancel order
         if (result.getOrderSnapshots() != null && result.getOrderSnapshots().size() > 0) {
             for (OrderSnapshot orderSnapshot : result.getOrderSnapshots()) {
 
                 String orderRawValue = asString(
-                        db.get(bytes(orderIdKey(symbol, orderSnapshot.getOrderId()))));
+                        db.get(bytes(keyOfOrderId(symbol, orderSnapshot.getOrderId()))));
 
                 if (StringUtils.isBlank(orderRawValue)) {
 
@@ -217,29 +236,29 @@ public class MatchEngineStoreService {
 
                 // update cancel order
                 writeBatch.put(
-                        bytes(orderIdKey(symbol, updateOrder.getOrderId())),
+                        bytes(keyOfOrderId(symbol, updateOrder.getOrderId())),
                         bytes(JSON.toJSONString(updateOrder)));
             }
         }
 
-        Long lastMatchId = getMatchLastId(db);
+        Long lastMatchId = getOrderMatchLastId(db);
 
         List<MatchDetailItem> items = result.getItems();
 
         if (items != null && items.size() > 0) {
             for (MatchDetailItem matchDetailItem : items) {
                 lastMatchId += 1;
-                String orderMatchKey = orderMatchKey(symbol, lastMatchId);
+                String orderMatchKey = keyOrOrderMatchKey(symbol, lastMatchId);
                 matchDetailItem.setId(lastMatchId);
                 String orderMatchValue = JSON.toJSONString(matchDetailItem);
 
                 writeBatch.put(bytes(orderMatchKey), bytes(orderMatchValue));
             }
 
-            writeBatch.put(bytes(LAST_MATCH_ID), bytes(lastMatchId + ""));      //  update the last match id
+            writeBatch.put(bytes(ORDER_MATCH_LAST_ID), bytes(lastMatchId + ""));      //  update the last match id
         }
 
-        writeBatch.put(bytes(LAST_SEQ_ID), bytes(seqId + ""));      //  update the last seq id
+        writeBatch.put(bytes(ORDER_ACTION_LAST_SEQ_ID), bytes(seqId + ""));      //  update the last seq id
 
         db.write(writeBatch);
     }
@@ -265,8 +284,8 @@ public class MatchEngineStoreService {
 
         DB db = matchEngineDBFactory.createDBBySymbol(symbol, false);
         WriteBatch writeBatch = db.createWriteBatch();
-        writeBatch.delete(bytes(orderIdKey(symbol, order.getOrderId())));
-        writeBatch.delete(bytes(orderSeqKey(symbol, order.getSeqId())));
+        writeBatch.delete(bytes(keyOfOrderId(symbol, order.getOrderId())));
+        writeBatch.delete(bytes(keyOfOrderSeqId(symbol, order.getSeqId())));
 
         db.write(writeBatch);
         return true;
@@ -285,7 +304,7 @@ public class MatchEngineStoreService {
 
         WriteBatch writeBatch = db.createWriteBatch();
 
-        writeBatch.delete(bytes(orderMatchKey(symbol, matchId)));
+        writeBatch.delete(bytes(keyOrOrderMatchKey(symbol, matchId)));
 
         db.write(writeBatch);
     }
@@ -302,7 +321,7 @@ public class MatchEngineStoreService {
         DB db = matchEngineDBFactory.createDBBySymbol(symbol, false);
 
         String orderRawValue = asString(
-                db.get(bytes(orderIdKey(symbol, orderId))));
+                db.get(bytes(keyOfOrderId(symbol, orderId))));
 
         if (StringUtils.isBlank(orderRawValue)) {
             return null;
@@ -312,32 +331,46 @@ public class MatchEngineStoreService {
         return JSON.parseObject(orderRawValue, Order.class);
     }
 
-    private Long getMatchLastId(DB db) {
+    private Long getOrderMatchLastId(DB db) {
         Long lastMatchId = 0L;
-        String lastMatchIdString = asString(db.get(bytes(LAST_MATCH_ID)));
+        String lastMatchIdString = asString(db.get(bytes(ORDER_MATCH_LAST_ID)));
         if (StringUtils.isNotBlank(lastMatchIdString)) {
             lastMatchId = Long.parseLong(lastMatchIdString);
         }
         return lastMatchId;
     }
 
-    private Long getSeqLastId(DB db) {
+    private String getOrderAction(DB db, String symbol, Long seqId) {
+        return asString(db.get(bytes(keyOfOrderAction(symbol, seqId))));
+    }
+
+    private Long getOrderActionLastSeqId(DB db) {
         Long lastMatchId = 0L;
-        String lastSeqIdString = asString(db.get(bytes(LAST_SEQ_ID)));
+        String lastSeqIdString = asString(db.get(bytes(ORDER_ACTION_LAST_SEQ_ID)));
         if (StringUtils.isNotBlank(lastSeqIdString)) {
             lastMatchId = Long.parseLong(lastSeqIdString);
         }
         return lastMatchId;
     }
 
-    public Long getLastSeqId(String symbol) {
+    public Long getOrderActionLastSeqId(String symbol) {
         DB db = matchEngineDBFactory.createDBBySymbol(symbol, false);
-        return getSeqLastId(db);
+        return getOrderActionLastSeqId(db);
+    }
+
+    /**
+     * @param symbol
+     * @param seqId
+     * @return `submit-xxxx` or `cancel-xxx`
+     */
+    public String getOrderAction(String symbol, Long seqId) {
+        DB db = matchEngineDBFactory.createDBBySymbol(symbol, false);
+        return getOrderAction(db, symbol, seqId);
     }
 
     public Long getLastMatchId(String symbol) {
         DB db = matchEngineDBFactory.createDBBySymbol(symbol, false);
-        return getMatchLastId(db);
+        return getOrderMatchLastId(db);
     }
 
     public MatchDetailItem getMatchItemByMatchId(String symbol, Long matchId) {
@@ -351,7 +384,7 @@ public class MatchEngineStoreService {
 
         DB db = matchEngineDBFactory.createDBBySymbol(symbol, false);
         String matchRawValue = asString(
-                db.get(bytes(orderMatchKey(symbol, matchId))));
+                db.get(bytes(keyOrOrderMatchKey(symbol, matchId))));
 
         if (StringUtils.isBlank(matchRawValue)) {
             return null;
@@ -371,7 +404,7 @@ public class MatchEngineStoreService {
 
         DB db = matchEngineDBFactory.createDBBySymbol(symbol, false);
         byte[] orderIdRawValue =
-                db.get(bytes(orderSeqKey(symbol, seqId)));
+                db.get(bytes(keyOfOrderSeqId(symbol, seqId)));
 
         if (orderIdRawValue == null || orderIdRawValue.length == 0) {
             return null;
@@ -386,7 +419,7 @@ public class MatchEngineStoreService {
     }
 
     private long getOrderBookLastBackupId(DB db, String symbol) {
-        byte[] rawValue = db.get(bytes(orderBookBackupLatestIdKey(symbol)));
+        byte[] rawValue = db.get(bytes(keyOfOrderBookLastBackupId(symbol)));
         if (rawValue == null || rawValue.length == 0) {
             return 0L;
         }
@@ -399,7 +432,7 @@ public class MatchEngineStoreService {
     }
 
     private OrderBookBackupInfo getOrderBookBackupInfo(DB db, String symbol, Long backupId) {
-        byte[] rawValue = db.get(bytes(orderBookBackupInfoKey(symbol, backupId)));
+        byte[] rawValue = db.get(bytes(keyOfOrderBookBackupInfo(symbol, backupId)));
         if (rawValue == null || rawValue.length == 0) {
             return null;
         }
@@ -413,7 +446,7 @@ public class MatchEngineStoreService {
     }
 
     private OrderBookBackupItem getOrderBookBackupItem(DB db, String symbol, Long backupId, Long seqId) {
-        String key = orderBookBackupItemKey(symbol, backupId, seqId);
+        String key = keyOfOrderBookBackupItem(symbol, backupId, seqId);
         byte[] rawValue = db.get(bytes(key));
         if (rawValue == null || rawValue.length == 0) {
             return null;
@@ -436,6 +469,8 @@ public class MatchEngineStoreService {
             throw new RuntimeException("symbol:" + symbol + " is invalidate");
         }
 
+        logger.info("backupOrderBookCenter start symbol:{}", symbol);
+
         DB db = matchEngineDBFactory.createDBBySymbol(symbol, false);
 
         long latestBackupId = getOrderBookLastBackupId(db, symbol);
@@ -448,37 +483,48 @@ public class MatchEngineStoreService {
         Long backupEndSeqId = null;
 
         List<OrderBookBackupItem> asks = orderBookCenter.backupAsks();
-        for (OrderBookBackupItem item : asks) {
-            String key = orderBookBackupItemKey(symbol, currentBackupId, item.getOrderBook().getSeqId());
+        List<OrderBookBackupItem> bids = orderBookCenter.backupBids();
+
+        List<OrderBookBackupItem> items = Lists.newLinkedList();
+        items.addAll(asks);
+        items.addAll(bids);
+
+        int itemsSize = items.size();
+
+        for (OrderBookBackupItem item : items) {
+            String key = keyOfOrderBookBackupItem(symbol, currentBackupId, item.getOrderBook().getSeqId());
             String value = JSON.toJSONString(item);
             writeBatch.put(bytes(key), bytes(value));
+
             if (backupStartSeqId == null) {
                 backupStartSeqId = item.getOrderBook().getSeqId();
             }
-        }
-        asks.clear();
-
-        List<OrderBookBackupItem> bids = orderBookCenter.backupBids();
-        for (OrderBookBackupItem item : bids) {
-            String key = orderBookBackupItemKey(symbol, currentBackupId, item.getOrderBook().getSeqId());
-            String value = JSON.toJSONString(item);
-            writeBatch.put(bytes(key), bytes(value));
             backupEndSeqId = item.getOrderBook().getSeqId();
         }
+
+        asks.clear();
         bids.clear();
+        items.clear();
 
         OrderBookBackupInfo orderBookBackupInfo = new OrderBookBackupInfo(
                 currentBackupId, latestBackupId, backupStartSeqId, backupEndSeqId);
 
         // update latest backup id
-        writeBatch.put(bytes(orderBookBackupLatestIdKey(symbol)), bytes(currentBackupId + ""));
+        writeBatch.put(bytes(keyOfOrderBookLastBackupId(symbol)), bytes(currentBackupId + ""));
 
         // update the backup info
-        writeBatch.put(bytes(orderBookBackupInfoKey(symbol, currentBackupId)), bytes(JSON.toJSONString(orderBookBackupInfo)));
+        writeBatch.put(bytes(keyOfOrderBookBackupInfo(symbol, currentBackupId)), bytes(JSON.toJSONString(orderBookBackupInfo)));
 
         db.write(writeBatch);
 
+        logger.info("backupOrderBookCenter end symbol:{}, itemsSize:{}", symbol, itemsSize);
+
         return currentBackupId;
+    }
+
+    public Long getOrderBookLastBackupId(String symbol) {
+        DB db = matchEngineDBFactory.createDBBySymbol(symbol, false);
+        return getOrderBookLastBackupId(db, symbol);
     }
 
     public List<OrderBookBackupItem> getOrderBookBackupItems(String symbol, Long backupId) {
@@ -488,11 +534,12 @@ public class MatchEngineStoreService {
 
         List<OrderBookBackupItem> items = Lists.newLinkedList();
 
-        if (orderBookBackupInfo == null) {
+        if (orderBookBackupInfo == null
+                || orderBookBackupInfo.getBackupStartSeqId() == null) {
             return items;
         }
 
-        long currentSeqId = orderBookBackupInfo.getBackupStartSeqId();
+        long currentSeqId = orderBookBackupInfo.getBackupEndSeqId();
 
         while (true) {
             OrderBookBackupItem item = getOrderBookBackupItem(db, symbol, backupId, currentSeqId);
@@ -501,8 +548,19 @@ public class MatchEngineStoreService {
             }
             items.add(item);
 
+            if (item.getPrevSeqId() == null) {
+                break;
+            }
+
             currentSeqId = item.getPrevSeqId();         // prev seq id
         }
+
+        items.sort(new Comparator<OrderBookBackupItem>() {
+            @Override
+            public int compare(OrderBookBackupItem o1, OrderBookBackupItem o2) {
+                return o1.getOrderBook().getSeqId().compareTo(o2.getOrderBook().getSeqId());
+            }
+        });
 
         return items;
     }

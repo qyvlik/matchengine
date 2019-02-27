@@ -25,7 +25,7 @@ public class OrderDBListenerTest {
     public void startupAndSub() throws Exception {
 
         OrderDBListener listener = new OrderDBListener("ws://localhost:17711/orderdb",
-                "btc-usdt", new IOrderCommandExecutor() {
+                "btc-usdt", new OrderCommandExecutor() {
             @Override
             public void exec(OrderCommand command) {
                 logger.info("command:{}", command);
@@ -49,7 +49,7 @@ public class OrderDBListenerTest {
         final MatchEngine matchEngine = new MatchEngine(symbol);
 
         OrderDBListener listener = new OrderDBListener("ws://localhost:17711/orderdb",
-                symbol, new IOrderCommandExecutor() {
+                symbol, new OrderCommandExecutor() {
             @Override
             public void exec(OrderCommand command) {
 
@@ -100,7 +100,7 @@ public class OrderDBListenerTest {
 
         String symbol = "btc-usdt";
 
-        int buyIndex = 100;
+        int buyIndex = 1;
         while (buyIndex-- > 0) {
             Order order = OrderBuildTool.build(null,
                     OrderType.limitBuy,
@@ -114,21 +114,21 @@ public class OrderDBListenerTest {
                     "append",
                     Lists.newArrayList("order.btc-usdt", keyPrefix + order.getOrderId(), order));
         }
-
-        int sellIndex = 1;
-        while (sellIndex-- > 0) {
-            Order order = OrderBuildTool.build(null,
-                    OrderType.limitSell,
-                    symbol,
-                    new BigDecimal("1000.0"),
-                    new BigDecimal("0.0001"));
-
-            String keyPrefix = "submit-";
-
-            writeClient.callRpcAsync(
-                    "append",
-                    Lists.newArrayList("order.btc-usdt", keyPrefix + order.getOrderId(), order));
-        }
+//
+//        int sellIndex = 10;
+//        while (sellIndex-- > 0) {
+//            Order order = OrderBuildTool.build(null,
+//                    OrderType.limitSell,
+//                    symbol,
+//                    new BigDecimal("1000.0"),
+//                    new BigDecimal("0.0001"));
+//
+//            String keyPrefix = "submit-";
+//
+//            writeClient.callRpcAsync(
+//                    "append",
+//                    Lists.newArrayList("order.btc-usdt", keyPrefix + order.getOrderId(), order));
+//        }
 
         Future<ResponseObject> resFuture3 =
                 writeClient.callRpc(

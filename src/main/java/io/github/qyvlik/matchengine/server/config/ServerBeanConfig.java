@@ -4,11 +4,11 @@ import com.google.common.collect.Lists;
 import io.github.qyvlik.matchengine.core.durable.service.MatchEngineDBFactory;
 import io.github.qyvlik.matchengine.core.matcher.request.CreateSymbolRequest;
 import io.github.qyvlik.matchengine.server.dispatch.MatchEngineRequestDispatcher;
-import io.github.qyvlik.matchengine.server.dispatch.OrderCommandExecutor;
+import io.github.qyvlik.matchengine.server.dispatch.SimpleOrderCommandExecutor;
 import io.github.qyvlik.matchengine.server.dispatch.WritableExecutor;
 import io.github.qyvlik.matchengine.server.durable.MatchEngineStoreService;
 import io.github.qyvlik.matchengine.server.engine.MatchEngineServer;
-import io.github.qyvlik.matchengine.server.listener.IOrderCommandExecutor;
+import io.github.qyvlik.matchengine.server.listener.OrderCommandExecutor;
 import io.github.qyvlik.matchengine.server.listener.OrderDBListener;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,6 +29,11 @@ public class ServerBeanConfig {
 
     @Value("${matchengine.orderdb.host}")
     private String orderDBHost;
+
+
+    @Value("${matchengine.backup.executetimes}")
+    private Long backupExecuteTimes;
+
 
     @Bean("symbolList")
     @ConfigurationProperties(prefix = "matchengine.symbols")
@@ -51,7 +56,7 @@ public class ServerBeanConfig {
     public MatchEngineServer matchEngineServer(
             @Qualifier("matchEngineStoreService") MatchEngineStoreService matchEngineStoreService,
             @Qualifier("symbolList") List<String> symbolList) {
-        MatchEngineServer matchEngineServer = new MatchEngineServer(matchEngineStoreService);
+        MatchEngineServer matchEngineServer = new MatchEngineServer(matchEngineStoreService, backupExecuteTimes);
 
         for (String symbol : symbolList) {
             matchEngineServer.createSymbol(new CreateSymbolRequest(symbol));
@@ -72,22 +77,22 @@ public class ServerBeanConfig {
         return new MatchEngineRequestDispatcher(matchEngineServer, writableExecutor);
     }
 
-    @Bean("orderCommandExecutor")
-    public OrderCommandExecutor orderCommandExecutor(
+    @Bean("simpleOrderCommandExecutor")
+    public SimpleOrderCommandExecutor simpleOrderCommandExecutor(
             @Qualifier("matchEngineRequestDispatcher") MatchEngineRequestDispatcher matchEngineRequestDispatcher) {
-        return new OrderCommandExecutor(matchEngineRequestDispatcher);
+        return new SimpleOrderCommandExecutor(matchEngineRequestDispatcher);
     }
 
     @Bean("orderDBListenerList")
     public List<OrderDBListener> orderDBListenerList(
-            @Qualifier("orderCommandExecutor") IOrderCommandExecutor IOrderCommandExecutor,
+            @Qualifier("simpleOrderCommandExecutor") OrderCommandExecutor orderCommandExecutor,
             @Qualifier("symbolList") List<String> symbolList) {
         List<OrderDBListener> listeners = Lists.newLinkedList();
         if (symbolList == null || symbolList.size() == 0) {
             return listeners;
         }
         for (String symbol : symbolList) {
-            listeners.add(new OrderDBListener(orderDBHost, symbol, IOrderCommandExecutor));
+            listeners.add(new OrderDBListener(orderDBHost, symbol, orderCommandExecutor));
         }
         return listeners;
     }

@@ -34,7 +34,7 @@ public class MatchEngineServerTest {
 
         MatchEngineStoreService storeService = new MatchEngineStoreService(dbFactory);
 
-        return new MatchEngineServer(storeService);
+        return new MatchEngineServer(storeService, 10);
     }
 
     @Test

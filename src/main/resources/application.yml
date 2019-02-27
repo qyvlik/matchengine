@@ -8,11 +8,13 @@ matchengine:
   symbols:
     - btc-usdt
     - eth-usdt
-    - eth-btc
-    - eos-usdt
-    - usdt-usd
+#    - eth-btc
+#    - eos-usdt
+#    - usdt-usd
   dbDisk:
     directory: matchengine
     limit: 20
+  backup:
+    executetimes: 10
   orderdb:
     host: ws://120.79.231.205:17711/orderdb

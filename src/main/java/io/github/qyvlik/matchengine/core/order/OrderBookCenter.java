@@ -22,12 +22,18 @@ public class OrderBookCenter implements Serializable {
         return bids;
     }
 
-    public void restoreFromBackupItem(List<OrderBookBackupItem> items) {
+    public Long restoreFromBackupItem(List<OrderBookBackupItem> items) {
+        Long latestSeqId = 0L;
         if (Collections3.isEmpty(items)) {
-            return;
+            return latestSeqId;
         }
         for (OrderBookBackupItem item : items) {
             OrderBook orderBook = item.getOrderBook();
+
+            if (latestSeqId < orderBook.getSeqId()) {
+                latestSeqId = orderBook.getSeqId();
+            }
+
             if (orderBook.getType().isBuy()) {
                 bids.putOrderBook(orderBook);
             } else if (orderBook.getType().isSell()) {
@@ -36,6 +42,7 @@ public class OrderBookCenter implements Serializable {
                 throw new RuntimeException("not support type:" + orderBook.getType());
             }
         }
+        return latestSeqId;
     }
 
     public List<OrderBookBackupItem> backupAsks() {
