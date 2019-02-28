@@ -38,7 +38,7 @@ public class Startup {
 
                 matchEngineServer.restoreFromDB(listener.getSymbol());
 
-                listener.startupAndSub(matchEngineServer.getLastSeqId(listener.getSymbol()));
+                listener.startupAndSub(matchEngineServer.getOrderActionLastSeqId(listener.getSymbol()));
 
             } catch (Exception e) {
                 logger.error("listener:{} startup failure:{}",

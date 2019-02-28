@@ -29,6 +29,10 @@ public class MatchEngineRequestDispatcher {
         return matchEngineServer.getOrderBySeqId(request);
     }
 
+    public Long getOrderActionLastSeqId(String symbol) {
+        return matchEngineServer.getOrderActionLastSeqId(symbol);
+    }
+
     public void createSymbol(CreateSymbolRequest request) {
         Executor executor = writableExecutor.getBySymbol(request.getSymbol());
         if (executor != null) {

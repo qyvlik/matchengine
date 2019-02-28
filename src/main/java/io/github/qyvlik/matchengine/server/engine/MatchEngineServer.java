@@ -90,7 +90,7 @@ public class MatchEngineServer {
         return result;
     }
 
-    public Long getLastSeqId(String symbol) {
+    public Long getOrderActionLastSeqId(String symbol) {
         return matchEngineStoreService.getOrderActionLastSeqId(symbol);
     }
 

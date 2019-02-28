@@ -62,7 +62,7 @@
 		<dependency>
 			<groupId>io.github.qyvlik</groupId>
 			<artifactId>jsonrpclite-core</artifactId>
-			<version>1.1.1</version>
+			<version>1.1.4</version>
 		</dependency>
 
 	</dependencies>

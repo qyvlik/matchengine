@@ -7,6 +7,10 @@ public class GetOrderRequest implements Serializable {
     private Long seqId;
     private String orderId;
 
+    public GetOrderRequest() {
+
+    }
+
     public GetOrderRequest(String symbol, String orderId) {
         this.symbol = symbol;
         this.orderId = orderId;

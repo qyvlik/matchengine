@@ -19,7 +19,7 @@ import org.springframework.context.annotation.Configuration;
 import java.util.List;
 
 @Configuration
-public class ServerBeanConfig {
+public class MatchEngineBeansConfig {
 
     @Value("${matchengine.dbDisk.directory}")
     private String dbDiskDirectory;
@@ -33,7 +33,6 @@ public class ServerBeanConfig {
 
     @Value("${matchengine.backup.executetimes}")
     private Long backupExecuteTimes;
-
 
     @Bean("symbolList")
     @ConfigurationProperties(prefix = "matchengine.symbols")
