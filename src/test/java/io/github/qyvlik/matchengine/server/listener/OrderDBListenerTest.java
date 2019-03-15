@@ -92,7 +92,7 @@ public class OrderDBListenerTest {
     @Test
     public void submitOrder() throws Exception {
         RpcClient writeClient = new RpcClient(
-                "ws://120.79.231.205:17711/orderdb",
+                "ws://localhost:17711/orderdb",
                 500,
                 20000);
 

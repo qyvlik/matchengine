@@ -17,4 +17,4 @@ matchengine:
   backup:
     executetimes: 10
   orderdb:
-    host: ws://120.79.231.205:17711/orderdb
+    host: ws://localhost:17711/orderdb
